@@ -19,7 +19,7 @@ interface ResolveLogger {
 
 export interface ResolveHandlerDeps {
   logger: ResolveLogger;
-  /** Socket timeout in ms for the upstream Easynews request (default 20s). */
+  /** Socket timeout in ms for the upstream Easynews request (default 60s). */
   timeoutMs?: number;
   /** Injectable for tests; defaults to follow-redirects' http/https. */
   httpClient?: typeof defaultHttp;
@@ -35,7 +35,7 @@ export interface ResolveHandlerDeps {
  */
 export function createResolveHandler(deps: ResolveHandlerDeps) {
   const { logger } = deps;
-  const timeoutMs = deps.timeoutMs ?? 20_000;
+  const timeoutMs = deps.timeoutMs ?? 60_000;
   const http = deps.httpClient ?? defaultHttp;
   const https = deps.httpsClient ?? defaultHttps;
 
@@ -91,10 +91,12 @@ export function createResolveHandler(deps: ResolveHandlerDeps) {
       headers: {
         Authorization: authHeader,
         Range: 'bytes=0-0', // only fetch first byte
+        Accept: '*/*',
+        'User-Agent': 'EasynewsPlusPlus',
       },
       maxRedirects: 5,
       // Abort a hung Easynews connection instead of holding the socket open
-      // indefinitely (mirrors the 20s timeout on the search request in api.ts).
+      // indefinitely. The redirect handshake can be slower than a search request.
       timeout: timeoutMs,
       // Strip the Authorization header on any cross-host hop so the user's
       // Easynews credentials are never forwarded off easynews.com.

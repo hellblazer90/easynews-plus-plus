@@ -35,13 +35,20 @@ function makeFakeClient() {
   });
 
   let responseCb: ((u: unknown) => void) | undefined;
+  let requestOptions: unknown;
   const client = {
-    request: vi.fn((_url: string, _opts: unknown, cb: (u: unknown) => void) => {
+    request: vi.fn((_url: string, options: unknown, cb: (u: unknown) => void) => {
+      requestOptions = options;
       responseCb = cb;
       return fakeReq;
     }),
   };
-  return { client, fakeReq, fireResponse: (u: unknown) => responseCb!(u) };
+  return {
+    client,
+    fakeReq,
+    fireResponse: (u: unknown) => responseCb!(u),
+    getRequestOptions: () => requestOptions,
+  };
 }
 
 function makeRes() {
@@ -61,7 +68,7 @@ describe('createResolveHandler — no false timeout after a successful redirect'
 
   it('307-redirects, caches, drains the upstream, and ignores a later timeout', async () => {
     const logger = { error: vi.fn(), debug: vi.fn() };
-    const { client, fakeReq, fireResponse } = makeFakeClient();
+    const { client, fakeReq, fireResponse, getRequestOptions } = makeFakeClient();
     const handler = createResolveHandler({
       logger,
       httpsClient: client as never,
@@ -72,6 +79,15 @@ describe('createResolveHandler — no false timeout after a successful redirect'
     const res = makeRes();
 
     await handler(req as never, res as never);
+    expect(getRequestOptions()).toMatchObject({
+      timeout: 60_000,
+      headers: {
+        Authorization: expect.any(String),
+        Range: 'bytes=0-0',
+        Accept: '*/*',
+        'User-Agent': 'EasynewsPlusPlus',
+      },
+    });
 
     // Simulate the successful upstream response (a real redirect occurred).
     const upstream = { responseUrl: FINAL_URL, destroy: vi.fn(), resume: vi.fn() };

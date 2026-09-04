@@ -23,7 +23,7 @@ if (!user || !pass) {
 }
 
 const basic = 'Basic ' + Buffer.from(`${user}:${pass}`).toString('base64');
-const TIMEOUT = 20_000;
+const TIMEOUT = 60_000;
 const SAMPLE_SECONDS = 6; // how long to sample throughput
 const SAMPLE_CAP = 40 * 1024 * 1024; // ...or stop after 40 MB, whichever first
 
