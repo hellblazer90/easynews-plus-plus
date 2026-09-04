@@ -118,7 +118,7 @@ export function isAdultGroup(group: string | null | undefined): boolean {
 
 /**
  * Whether a search query is "anchored" to a specific episode or year — i.e. it
- * carries an SxxExx code or a 19xx/20xx year.
+ * carries a recognized season/episode code or a 19xx/20xx year.
  *
  * Unanchored queries (a bare title) are inherently low-precision: when a foreign
  * title's IMDb canonical is a generic English phrase (e.g. "Take Care"), a bare
@@ -129,7 +129,7 @@ export function isAdultGroup(group: string | null | undefined): boolean {
  * differs). Anchored queries are self-limiting and respect the user's setting.
  */
 export function isAnchoredQuery(query: string): boolean {
-  return /s\d{1,3}e\d{1,3}/i.test(query) || /\b(?:19|20)\d{2}\b/.test(query);
+  return parseSeasonEpisode(query) !== null || /\b(?:19|20)\d{2}\b/.test(query);
 }
 
 /**
@@ -218,8 +218,10 @@ type SeasonEpisodeMatch = SeasonEpisode & {
   index: number;
 };
 
-const SEASON_EPISODE_PATTERN = /(?<![A-Za-z0-9])s(\d{1,3})\s*e(\d{1,3})(?![A-Za-z0-9])/i;
-const SANITIZED_SEASON_EPISODE_PATTERN = /s\d{1,3}\s*e\d{1,3}/i;
+const SEASON_EPISODE_PATTERN =
+  /(?<![A-Za-z0-9])(?:s(\d{1,3})[\s._-]*e(\d{1,3})|(\d{1,3})[\s._-]*x[\s._-]*(\d{1,3})|season[\s._-]*(\d{1,3})[\s._-]*(?:episode|ep)[\s._-]*(\d{1,3}))(?![A-Za-z0-9])/i;
+const SANITIZED_SEASON_EPISODE_PATTERN =
+  /(?:s\d{1,3}\s*e\d{1,3}|\d{1,3}\s*x\s*\d{1,3}|season\s*\d{1,3}\s*(?:episode|ep)\s*\d{1,3})/i;
 const PLAUSIBLE_YEAR_PATTERN = /\b(?:19|20)\d{2}\b/;
 
 function findSeasonEpisode(value: string): SeasonEpisodeMatch | null {
@@ -229,15 +231,15 @@ function findSeasonEpisode(value: string): SeasonEpisodeMatch | null {
   }
 
   return {
-    season: Number(match[1]),
-    episode: Number(match[2]),
+    season: Number(match[1] ?? match[3] ?? match[5]),
+    episode: Number(match[2] ?? match[4] ?? match[6]),
     index: match.index,
   };
 }
 
 /**
  * Parse a season/episode identifier from a release title or search query.
- * Accepts the common compact and padded forms, including S001E002.
+ * Accepts compact/padded SxxExx, 1x01, and Season 1 Episode 1 forms.
  */
 export function parseSeasonEpisode(value: string): SeasonEpisode | null {
   const match = findSeasonEpisode(value);

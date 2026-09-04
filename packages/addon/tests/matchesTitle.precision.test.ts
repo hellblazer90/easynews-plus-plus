@@ -34,6 +34,8 @@ describe('matchesTitle non-strict precision (real parse-torrent-title)', () => {
     ['Andor.S01E01.1080p.DSNP.WEB-GRP', 'Andor S01E01'],
     ['Star.Wars.Andor.S01E01.1080p.DSNP.WEB-GRP', 'Andor S01E01'],
     ['Shogun.2024.S01E01.2160p.WEB-GRP', 'Shogun S01E01'],
+    ['Hey.Arnold.1x01.1080p.WEB-DL-GRP', 'Hey Arnold S01E01'],
+    ['Hey.Arnold.Season.1.Episode.1.1080p.WEB-DL-GRP', 'Hey Arnold S01E01'],
   ];
 
   const danishMustMatch: Array<[string, string]> = [

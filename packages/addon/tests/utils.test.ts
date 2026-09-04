@@ -106,6 +106,10 @@ describe('parseSeasonEpisode', () => {
     ['S3E4', { season: 3, episode: 4 }],
     ['s003e004', { season: 3, episode: 4 }],
     ['Show S12 E07', { season: 12, episode: 7 }],
+    ['Show 1x01', { season: 1, episode: 1 }],
+    ['Show 1 x 01', { season: 1, episode: 1 }],
+    ['Show Season 1 Episode 1', { season: 1, episode: 1 }],
+    ['Show Season 1 Ep 1', { season: 1, episode: 1 }],
   ])('normalizes %s', (value, expected) => {
     expect(parseSeasonEpisode(value)).toEqual(expected);
   });
@@ -180,6 +184,8 @@ describe('matchesTitle', () => {
 
   it.each([true, false])('requires the exact episode in %s mode', strict => {
     const query = 'Dragon Ball Z S03E04';
+    expect(matchesTitle('Dragon.Ball.Z.3x04.1080p.mkv', query, strict)).toBe(true);
+    expect(matchesTitle('Dragon.Ball.Z.Season.3.Episode.4.1080p.mkv', query, strict)).toBe(true);
 
     expect(matchesTitle('Dragon.Ball.Z.S03E04.1080p.mkv', query, strict)).toBe(true);
     expect(matchesTitle('Dragon.Ball.Z.S3E4.1080p.mkv', query, strict)).toBe(true);
