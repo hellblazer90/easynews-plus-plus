@@ -52,6 +52,7 @@ export const logger = createLogger({
   prefix: 'Addon',
   level: process.env.EASYNEWS_LOG_LEVEL || undefined, // Use the environment variable if set
 });
+const ADDON_NAME = manifest.name;
 
 // Helper to create a localized auth error stream
 function authErrorStream(langCode: string) {
@@ -59,7 +60,7 @@ function authErrorStream(langCode: string) {
   return {
     streams: [
       {
-        name: 'Easynews++ Auth Error',
+        name: `${ADDON_NAME} Auth Error`,
         description: translations[lang].errors.authFailed,
         url: 'https://example.com/error', // Dummy URL that won't play
         behaviorHints: {
@@ -76,7 +77,7 @@ function configErrorStream() {
   return {
     streams: [
       {
-        name: 'Easynews++ Config Error',
+        name: `${ADDON_NAME} Config Error`,
         description:
           'This addon needs to be reconfigured. Open its configuration page and re-install, ' +
           'or set the ADDON_BASE_URL environment variable on the server.',
@@ -1138,7 +1139,7 @@ function mapStream({
   const bingeGroup = `easynews-plus-plus|${quality || 'default'}|${bingeLang}|${fileExtension || 'unknown'}`;
 
   const stream: Stream & { _sort?: SortMeta } = {
-    name: `Easynews++${quality ? `\n${quality}` : ''}`,
+    name: `${ADDON_NAME}${quality ? `\n${quality}` : ''}`,
     description: [
       `${title}${fileExtension}`,
       `🕛 ${duration ?? 'unknown duration'}`,

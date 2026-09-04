@@ -54,13 +54,15 @@ const qualityOptions = {
 } as Record<string, string>;
 
 export const manifest: Manifest = {
-  id: 'community.easynews-plus-plus',
+  // Keep this distinct from the upstream Easynews++ manifest so both addons
+  // can be installed in the same Stremio/Nuvio profile.
+  id: 'community.easynews-plus-plus-plus',
   version,
   description,
   catalogs: [],
   resources: [{ name: 'stream', types: ['movie', 'series'], idPrefixes: ['tt'] }],
   types: ['movie', 'series'],
-  name: 'Easynews++',
+  name: 'Easynews+++',
   background: 'https://i.imgur.com/QPPXf5T.jpeg',
   logo: 'https://pbs.twimg.com/profile_images/479627852757733376/8v9zH7Yo_400x400.jpeg',
   behaviorHints: { configurable: true, configurationRequired: true },

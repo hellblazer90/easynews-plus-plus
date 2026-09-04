@@ -883,11 +883,11 @@ function landingTemplate(manifest: Manifest): string {
     // Use the ClientLogger from the shared package
     // Define a simple client-side logger
     const logger = {
-      error: (message, ...args) => console.error('[Easynews++]', message, ...args),
-      warn: (message, ...args) => console.warn('[Easynews++]', message, ...args),
-      info: (message, ...args) => console.log('[Easynews++]', message, ...args),
-      debug: (message, ...args) => console.log('[Easynews++]', message, ...args),
-      silly: (message, ...args) => console.log('[Easynews++]', message, ...args)
+      error: (message, ...args) => console.error('[${manifest.name}]', message, ...args),
+      warn: (message, ...args) => console.warn('[${manifest.name}]', message, ...args),
+      info: (message, ...args) => console.log('[${manifest.name}]', message, ...args),
+      debug: (message, ...args) => console.log('[${manifest.name}]', message, ...args),
+      silly: (message, ...args) => console.log('[${manifest.name}]', message, ...args)
     };
     
     // Store the current language for debugging
