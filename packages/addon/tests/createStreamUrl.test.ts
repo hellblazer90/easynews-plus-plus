@@ -34,6 +34,17 @@ describe('createStreamUrl — secure-by-default credential handling', () => {
     expect(url.endsWith('/My.Movie.2020.mkv')).toBe(true);
     expect(url).not.toContain(`${USER}:${PASS}@`);
   });
+  it('encodes Easynews path segments before creating the resolve payload', () => {
+    const filePath = 'dir/Interstellar (2014) [tmdb-157336].mkv';
+    const url = createStreamUrl(RES, USER, PASS, filePath, 'https://addon.example.com');
+    const encodedPayload = url.split('/resolve/')[1]?.split('/')[0] ?? '';
+    const decodedPayload = Buffer.from(encodedPayload, 'base64url').toString('utf8');
+
+    expect(url.endsWith('/Interstellar%20(2014)%20%5Btmdb-157336%5D.mkv')).toBe(true);
+    expect(decodedPayload).toContain(
+      'https://members.easynews.com/farm1/8080/dir/Interstellar%20(2014)%20%5Btmdb-157336%5D.mkv'
+    );
+  });
 
   it('falls back to ADDON_BASE_URL env when config baseUrl is absent (still proxied)', () => {
     process.env.ADDON_BASE_URL = 'https://env.example.com';

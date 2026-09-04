@@ -582,12 +582,14 @@ export function createStreamUrl(
   // ADDON_BASE_URL so installs predating baseUrl injection are still proxied.
   const effectiveBaseUrl = baseUrl || process.env.ADDON_BASE_URL;
 
+  const encodedFilePath = filePath.split('/').map(encodeURIComponent).join('/');
+
   if (!effectiveBaseUrl) {
     // No proxy base available. Embedding the user's Easynews credentials directly
     // in the stream URL (legacy mode) leaks them to the player and any
     // intermediary, so it is disabled unless explicitly opted into.
     if (process.env.ALLOW_INSECURE_CREDENTIAL_URLS === 'true') {
-      const url = `${downURL.replace('https://', `https://${username}:${password}@`)}/${dlFarm}/${dlPort}/${filePath}`;
+      const url = `${downURL.replace('https://', `https://${username}:${password}@`)}/${dlFarm}/${dlPort}/${encodedFilePath}`;
       // Never log the credential portion of the URL.
       logger.warn(
         `Stream URL created in INSECURE legacy mode (credentials embedded in URL): ` +
@@ -604,13 +606,13 @@ export function createStreamUrl(
   }
 
   // Resolve mode: route via addon's /resolve endpoint.
-  const url = `${downURL}/${dlFarm}/${dlPort}/${filePath}`;
+  const url = `${downURL}/${dlFarm}/${dlPort}/${encodedFilePath}`;
   // Credentials as query‐parameters
   const authUrl = `${url}?u=${encodeURIComponent(username)}&p=${encodeURIComponent(password)}`;
   // Base64URL-encode authUrl
   const encodedUrl = Buffer.from(authUrl).toString('base64url');
   // Extract the filename
-  const fileName = path.basename(filePath);
+  const fileName = path.basename(encodedFilePath);
   // Strip any trailing slash on baseUrl before concatenating
   const normalizedBase = effectiveBaseUrl.replace(/\/+$/, '');
   // Build /resolve/<base64-payload>/<filename>
