@@ -911,11 +911,11 @@ function landingTemplate(manifest: Manifest): string {
     function updateLink() {
       const formData = new FormData(configForm);
       const config = {};
-      
+
       for (const [key, value] of formData.entries()) {
         config[key] = value;
       }
-      
+
       // Handle checkboxes that might not be in formData when unchecked
       document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
         if (!formData.has(checkbox.name)) {
@@ -924,11 +924,13 @@ function landingTemplate(manifest: Manifest): string {
       });
 
       // Include the origin the user loaded this page from
-      config.baseUrl = window.location.origin
-      
-      // Create the stremio:// URL
-      installLink.href = 'stremio://' + window.location.host + '/' + encodeURIComponent(JSON.stringify(config)) + '/manifest.json';
-      copyButton.href = 'https://' + window.location.host + '/' + encodeURIComponent(JSON.stringify(config)) + '/manifest.json';
+      config.baseUrl = window.location.origin;
+      const configuredPath =
+        '/' + encodeURIComponent(JSON.stringify(config)) + '/manifest.json';
+
+      // Create the stremio:// URL and a copyable URL using the current protocol.
+      installLink.href = 'stremio://' + window.location.host + configuredPath;
+      copyButton.href = window.location.origin + configuredPath;
     }
     
     // Extract the language change handler to a named function

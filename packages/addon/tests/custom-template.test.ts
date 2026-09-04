@@ -390,4 +390,10 @@ describe('Custom Template', () => {
     expect(htmlDeu).toContain('Qualität zuerst');
     expect(htmlDeu).toContain('Sprache zuerst');
   });
+  it('builds copied config URLs from the current page origin', () => {
+    const html = landingTemplate(mockManifest);
+
+    expect(html).toContain('const configuredPath =');
+    expect(html).toContain('copyButton.href = window.location.origin + configuredPath;');
+  });
 });
