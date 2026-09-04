@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { manifest } from '../src/manifest';
 
+import { publicMetaProvider } from '../src/meta';
 // Mocking needs to happen before imports
 vi.mock('../src/manifest', () => ({
   manifest: {
@@ -16,6 +17,12 @@ vi.mock('../src/manifest', () => ({
 
 vi.mock('../src/utils', () => ({
   buildSearchQuery: vi.fn().mockImplementation((type, meta) => {
+    if (type === 'series' && meta.season && meta.episode) {
+      const year = meta.year ? ` ${meta.year}` : '';
+      return `${meta.name}${year} S${meta.season.toString().padStart(2, '0')}E${meta.episode
+        .toString()
+        .padStart(2, '0')}`;
+    }
     return `${meta.name} ${meta.year || ''}`.trim();
   }),
   dedupeIgnoreCase: vi.fn().mockImplementation((queries: string[]) => {
@@ -308,5 +315,38 @@ describe('Addon', () => {
     // Verify the result
     expect(result).toHaveProperty('streams');
     expect(Array.isArray(result.streams)).toBe(true);
+  });
+  it('prioritizes year-qualified series searches before yearless fallback', async () => {
+    vi.mocked(publicMetaProvider).mockResolvedValueOnce({
+      name: 'Rugrats',
+      year: 1991,
+      season: '1',
+      episode: '3',
+    });
+
+    const handler = Reflect.get(globalThis, 'streamHandler');
+    if (typeof handler !== 'function') {
+      throw new Error('stream handler mock was not registered');
+    }
+    await handler({
+      id: 'ttseries1991',
+      type: 'series',
+      config: { username: 'testuser', password: 'testpass' },
+    });
+
+    const queries = mockSearch.mock.calls.map(call => {
+      const options: unknown = call[0];
+      if (
+        !options ||
+        typeof options !== 'object' ||
+        !('query' in options) ||
+        typeof options.query !== 'string'
+      ) {
+        throw new Error('search mock received malformed options');
+      }
+      return options.query;
+    });
+    expect(queries.slice(0, 2)).toEqual(['Rugrats 1991 S01E03', 'Alternative Title 1991 S01E03']);
+    expect(queries.slice(2)).toEqual(['Rugrats S01E03', 'Alternative Title S01E03']);
   });
 });

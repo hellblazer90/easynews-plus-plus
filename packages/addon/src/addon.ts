@@ -424,12 +424,9 @@ builder.defineStreamHandler(
       // is maintained incrementally instead of being recomputed per completion.
       const seenHashes = new Set<string>();
 
-      // Build the query lists: every title variant WITHOUT the year, then (if the
-      // year is known) every variant WITH the year. Kept as two phases so the
-      // no-year searches can satisfy TOTAL_MAX_RESULTS and skip the year phase
-      // entirely (the original early-exit behavior). Within each phase, queries
-      // are merged back in order so the downstream dedup-by-hash (first-seen wins)
-      // and the cap select the same results regardless of completion order.
+      // Build the query lists in two phases. Series searches with a known year
+      // run first so matching-version releases are returned before yearless
+      // fallbacks; movies retain their existing no-year-first behavior.
       const buildQueries = (withYear: boolean): string[] => {
         const out: string[] = [];
         for (const titleVariant of allTitles) {
@@ -445,19 +442,14 @@ builder.defineStreamHandler(
         return out;
       };
       // De-duplicate to avoid spending rate-limited API calls on identical
-      // searches. The no-year phase is deduped case-insensitively; the year
-      // phase additionally drops anything already covered by the no-year phase.
-      // For series this empties the year phase entirely (buildSearchQuery ignores
-      // the year for series, so it produces the same strings) — which previously
-      // re-fired the no-year queries when they failed, adding load during
-      // throttling. Also collapses case variants like "loegnen"/"Loegnen".
+      // searches. The year phase is distinct for series because
+      // buildSearchQuery includes the year when metadata provides one.
       const noYearQueries = dedupeIgnoreCase(buildQueries(false));
       const noYearKeys = new Set(noYearQueries.map(q => q.toLowerCase()));
       const yearQueries =
         meta.year !== undefined
           ? dedupeIgnoreCase(buildQueries(true)).filter(q => !noYearKeys.has(q.toLowerCase()))
           : [];
-
       // BOUNDED concurrency instead of one-at-a-time (the sequential fan-out
       // was the dominant latency cost on a cache miss). Default 2 = Easynews'
       // measured per-account cap, enforced authoritatively by the api
@@ -546,14 +538,18 @@ builder.defineStreamHandler(
         }
       };
 
+      const priorityQueries = type === 'series' ? yearQueries : noYearQueries;
+      const fallbackQueries = type === 'series' ? noYearQueries : yearQueries;
+
       logger.debug(
-        `Running ${noYearQueries.length} no-year + ${yearQueries.length} year searches for ${allTitles.length} title variants`
+        `Running ${priorityQueries.length} priority + ${fallbackQueries.length} fallback searches for ${allTitles.length} title variants`
       );
 
-      // No-year phase first; only run the year phase if still under the cap.
-      await runSearchPhase(noYearQueries);
+      // Series year-qualified searches run first; the fallback phase is still
+      // needed because many valid releases omit the series year.
+      await runSearchPhase(priorityQueries);
       if (totalFoundResults < TOTAL_MAX_RESULTS) {
-        await runSearchPhase(yearQueries);
+        await runSearchPhase(fallbackQueries);
       }
 
       if (allSearchResults.length === 0) {
@@ -637,32 +633,20 @@ builder.defineStreamHandler(
 
           processedHashes.add(fileHash);
 
-          // For series there are multiple possible queries that could match the title.
-          // We check if at least one of them matches.
+          // For series there are multiple title variants, but every validation
+          // query must retain the requested season and episode. A title-only
+          // fallback would let an unrelated episode pass.
           if (type === 'series') {
-            // Create queries for all title variants
-            const queries: string[] = [];
-
-            for (const titleVariant of allTitles) {
-              // Add full query with season and episode
-              const fullMeta = {
+            const queries = allTitles.map(titleVariant =>
+              buildSearchQuery(type, {
                 ...meta,
                 name: titleVariant,
-                year: meta.year,
-              };
-              queries.push(buildSearchQuery(type, fullMeta));
+              })
+            );
 
-              // Add query with episode only
-              const episodeMeta = {
-                name: titleVariant,
-                episode: meta.episode,
-              };
-              queries.push(buildSearchQuery(type, episodeMeta));
-            }
-
-            // Honor the user's strict setting, but force strict on UNANCHORED
-            // queries (no SxxExx / no year): a bare generic-English title floods
-            // with porn that substring-matches under loose. See isAnchoredQuery.
+            // Honor the user's strict setting, but force strict on unanchored
+            // queries. Exact episode and explicit year-conflict validation is
+            // independent of this title-permissiveness setting.
             if (
               !queries.some(q => matchesTitle(title, q, useStrictMatching || !isAnchoredQuery(q)))
             ) {
@@ -680,7 +664,7 @@ builder.defineStreamHandler(
               name: titleVariant,
             });
             // Honor the user's strict setting, but force strict on unanchored
-            // queries (no year here) for the same anti-flood reason as series.
+            // queries for the same anti-flood reason as series validation.
             return matchesTitle(
               title,
               variantQuery,

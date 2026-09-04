@@ -65,3 +65,37 @@ describe('matchesTitle non-strict precision (real parse-torrent-title)', () => {
     expect(matchesTitle(cand, query, false)).toBe(false);
   });
 });
+
+describe('matchesTitle series identity', () => {
+  it.each([true, false])('requires the exact episode in %s mode', strict => {
+    const query = 'Dragon Ball Z S03E04';
+
+    expect(matchesTitle('Dragon.Ball.Z.S03E04.1080p.mkv', query, strict)).toBe(true);
+    expect(matchesTitle('Dragon.Ball.Z.S3E4.1080p.mkv', query, strict)).toBe(true);
+    expect(matchesTitle('Dragon.Ball.Z.S003E004.1080p.mkv', query, strict)).toBe(true);
+    expect(matchesTitle('Dragon.Ball.Z.1996.S03E04.1080p.mkv', query, strict)).toBe(true);
+
+    for (const candidate of [
+      'Dragon.Ball.Z.S03E05.1080p.mkv',
+      'Dragon.Ball.Z.S04E04.1080p.mkv',
+      'Dragon.Ball.Z.S01E04.1080p.mkv',
+    ]) {
+      expect(matchesTitle(candidate, query, strict)).toBe(false);
+    }
+  });
+
+  it.each([true, false])('rejects an explicit conflicting series year in %s mode', strict => {
+    expect(matchesTitle('Rugrats.1991.S01E03.1080p.mkv', 'Rugrats 1991 S01E03', strict)).toBe(true);
+    expect(matchesTitle('Rugrats.S01E03.DVDRip.mkv', 'Rugrats 1991 S01E03', strict)).toBe(true);
+    expect(matchesTitle('Rugrats.2021.S01E03.1080p.mkv', 'Rugrats 1991 S01E03', strict)).toBe(
+      false
+    );
+    expect(matchesTitle('Rugrats.1991.S01E03.DVDRip.mkv', 'Rugrats 2021 S01E03', strict)).toBe(
+      false
+    );
+  });
+
+  it('rejects a requested episode when the candidate has no episode identifier', () => {
+    expect(matchesTitle('Dragon.Ball.Z.1080p.mkv', 'Dragon Ball Z S03E04', false)).toBe(false);
+  });
+});

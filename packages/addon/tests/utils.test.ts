@@ -18,6 +18,8 @@ import {
   getNordicTransliterations,
   buildSearchQuery,
   dedupeIgnoreCase,
+  parseSeasonEpisode,
+  extractCandidateYear,
 } from '../src/utils';
 import { FileData } from 'easynews-plus-plus-api';
 import * as parseTorrentTitle from 'parse-torrent-title';
@@ -98,6 +100,35 @@ describe('dedupeIgnoreCase', () => {
   });
 });
 
+describe('parseSeasonEpisode', () => {
+  it.each([
+    ['S03E04', { season: 3, episode: 4 }],
+    ['S3E4', { season: 3, episode: 4 }],
+    ['s003e004', { season: 3, episode: 4 }],
+    ['Show S12 E07', { season: 12, episode: 7 }],
+  ])('normalizes %s', (value, expected) => {
+    expect(parseSeasonEpisode(value)).toEqual(expected);
+  });
+
+  it.each(['1991', '1080p', '2160p', 'x264', 'x265', '10bit'])(
+    'does not parse %s as an episode identifier',
+    value => {
+      expect(parseSeasonEpisode(value)).toBeNull();
+    }
+  );
+});
+
+describe('extractCandidateYear', () => {
+  it.each([
+    ['Rugrats.1991.S01E03.1080p.mkv', 1991],
+    ['Rugrats.S01E03.DVDRip.mkv', undefined],
+    ['Show.Name.S01E03.2160p.x265.10bit.mkv', undefined],
+    ['Show.Name.S01E03.The.2021.Special.mkv', undefined],
+  ])('extracts only a title year from %s', (value, expected) => {
+    expect(extractCandidateYear(value)).toBe(expected);
+  });
+});
+
 describe('getNordicTransliterations', () => {
   it('returns the ASCII spelling for an æ title', () => {
     expect(getNordicTransliterations('Slangedræber')).toEqual(['Slangedraeber']);
@@ -145,6 +176,55 @@ describe('matchesTitle', () => {
     ['Slangedræber S01E01 1080p', 'Slangedraeber S01E01', true],
   ])("matches the title '%s' with query '%s'", (title, query, expected) => {
     expect(matchesTitle(title, query, false)).toBe(expected);
+  });
+
+  it.each([true, false])('requires the exact episode in %s mode', strict => {
+    const query = 'Dragon Ball Z S03E04';
+
+    expect(matchesTitle('Dragon.Ball.Z.S03E04.1080p.mkv', query, strict)).toBe(true);
+    expect(matchesTitle('Dragon.Ball.Z.S3E4.1080p.mkv', query, strict)).toBe(true);
+    expect(matchesTitle('Dragon.Ball.Z.S003E004.1080p.mkv', query, strict)).toBe(true);
+
+    for (const candidate of [
+      'Dragon.Ball.Z.S03E05.1080p.mkv',
+      'Dragon.Ball.Z.S04E04.1080p.mkv',
+      'Dragon.Ball.Z.S01E04.1080p.mkv',
+    ]) {
+      expect(matchesTitle(candidate, query, strict)).toBe(false);
+    }
+  });
+
+  it('rejects same-title reboot year conflicts in both modes', () => {
+    for (const strict of [true, false]) {
+      expect(matchesTitle('Rugrats.1991.S01E03.1080p.mkv', 'Rugrats 1991 S01E03', strict)).toBe(
+        true
+      );
+      expect(matchesTitle('Rugrats.S01E03.DVDRip.mkv', 'Rugrats 1991 S01E03', strict)).toBe(true);
+      expect(matchesTitle('Rugrats.2021.S01E03.1080p.mkv', 'Rugrats 1991 S01E03', strict)).toBe(
+        false
+      );
+      expect(matchesTitle('Rugrats.1991.S01E03.DVDRip.mkv', 'Rugrats 2021 S01E03', strict)).toBe(
+        false
+      );
+    }
+  });
+
+  it('applies year disambiguation generically beyond Rugrats', () => {
+    expect(
+      matchesTitle('The.Equalizer.1985.S01E03.1080p.mkv', 'The Equalizer 2021 S01E03', false)
+    ).toBe(false);
+    expect(
+      matchesTitle('The.Equalizer.2021.S01E03.1080p.mkv', 'The Equalizer 2021 S01E03', false)
+    ).toBe(true);
+  });
+
+  it('keeps strict title identity for distinct same-episode series', () => {
+    expect(matchesTitle('Dragon.Ball.Z.Kai.S03E04.1080p.mkv', 'Dragon Ball Z S03E04', true)).toBe(
+      false
+    );
+    expect(matchesTitle('Dragon.Ball.Super.S03E04.1080p.mkv', 'Dragon Ball Z S03E04', true)).toBe(
+      false
+    );
   });
 
   it('handles strict mode properly', () => {
@@ -641,6 +721,17 @@ describe('buildSearchQuery', () => {
     const query = buildSearchQuery('series' as ContentType, meta as any);
     expect(query).toContain('Breaking Bad');
     expect(query).toContain('S01E01');
+  });
+
+  it('includes a known series year before the episode identifier', () => {
+    const query = buildSearchQuery('series', {
+      name: 'Rugrats',
+      year: 1991,
+      season: '1',
+      episode: '3',
+    });
+
+    expect(query).toBe('Rugrats 1991 S01E03');
   });
 
   it('handles undefined episode information', () => {
